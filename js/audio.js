@@ -12,6 +12,18 @@ export class Soundscape {
     this.mix = { green: 0, water: 0, night: 0, total: 0 };
     this.volume = 0.8;
     this.chord = 0;
+    this.muted = false;
+    // iOS などで中断されたら、次の操作や画面復帰で再開する
+    const resume = () => { if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume().catch(() => {}); };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) resume(); });
+      ['pointerdown', 'touchend', 'keydown'].forEach((ev) => document.addEventListener(ev, resume, { passive: true }));
+    }
+  }
+
+  setMuted(m) {
+    this.muted = !!m;
+    if (this.master) this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.1);
   }
 
   start() {
@@ -19,6 +31,7 @@ export class Soundscape {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const c = (this.ctx = new AC());
+    c.resume().catch(() => {});
     this.master = c.createGain();
     this.master.gain.value = this.volume;
     const comp = c.createDynamicsCompressor();
@@ -79,7 +92,7 @@ export class Soundscape {
 
   setVolume(v) {
     this.volume = v;
-    if (this.master) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.1);
+    if (this.master && !this.muted) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.1);
   }
 
   setMix(m) { this.mix = { ...this.mix, ...m }; }
