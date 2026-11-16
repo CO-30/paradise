@@ -9,7 +9,7 @@ const CHORDS = [
 export class Soundscape {
   constructor() {
     this.ctx = null;
-    this.mix = { green: 0, water: 0, night: 0, total: 0 };
+    this.mix = { green: 0, water: 0, night: 0, total: 0, sea: 0 };
     this.volume = 0.8;
     this.chord = 0;
     this.muted = false;
@@ -63,6 +63,11 @@ export class Soundscape {
     });
     this.streamG.connect(this.master);
 
+    // 波（海辺）：ゆっくり寄せては返す
+    this.seaF = c.createBiquadFilter(); this.seaF.type = 'lowpass'; this.seaF.frequency.value = 500;
+    this.seaG = c.createGain(); this.seaG.gain.value = 0;
+    loop().connect(this.seaF).connect(this.seaG).connect(this.master);
+
     // 虫（夜）
     this.bugG = c.createGain(); this.bugG.gain.value = 0;
     const bug = c.createOscillator(); bug.frequency.value = 4400;
@@ -103,6 +108,9 @@ export class Soundscape {
     // 荒れ地では強めの風、楽園ではそよ風
     this.windG.gain.setTargetAtTime(0.28 - 0.18 * total, t, 1.5);
     this.streamG.gain.setTargetAtTime(0.5 * water, t, 1);
+    const swell = 0.5 + 0.5 * Math.sin(t * 0.7);
+    this.seaG.gain.setTargetAtTime(this.mix.sea * (0.15 + 0.45 * swell), t, 0.6);
+    this.seaF.frequency.setTargetAtTime(300 + 700 * swell, t, 0.6);
     this.bugG.gain.setTargetAtTime(0.012 * night * green, t, 2);
     const layers = 1 + Math.round(total * 4);
     this.voices.forEach((v, i) => v.g.gain.setTargetAtTime(i < layers ? 0.2 / (1 + i * 0.4) : 0, t, 3));
@@ -170,9 +178,30 @@ export class Soundscape {
       case 'animal': this.tone(220, 0.6, { type: 'triangle', gain: 0.12, slide: 1.3 }); this.tone(330, 0.5, { gain: 0.08, at: 0.2 }); break;
       case 'welcome': [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, 1.2, { gain: 0.12, at: i * 0.12 })); break;
       case 'card': [784, 1175, 1568].forEach((f, i) => this.tone(f, 1.6, { gain: 0.07, at: i * 0.18 })); break;
+      case 'reunion':
+        [262, 330, 392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, 3.2, { gain: 0.09, at: i * 0.22 }));
+        [1568, 2093, 2637].forEach((f, i) => this.tone(f, 2, { gain: 0.04, at: 1.6 + i * 0.3 }));
+        break;
+      case 'chapter': [392, 494, 587, 784].forEach((f, i) => this.tone(f, 2.4, { gain: 0.09, at: i * 0.3, type: 'triangle' })); break;
+      case 'step': this.burst(0.08, 900, 0.12); break;
+      case 'photo': this.burst(0.05, 4000, 0.3); this.tone(1200, 0.08, { gain: 0.08, at: 0.05 }); break;
       case 'deny': this.tone(200, 0.15, { type: 'triangle', gain: 0.1 }); break;
       case 'night': [392, 330, 262].forEach((f, i) => this.tone(f, 1, { gain: 0.08, at: i * 0.25 })); break;
       default: break;
     }
   }
+}
+
+// 端末の音声合成で日本語を読み上げる（対応していない端末では何もしない）
+export const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
+export function speak(text) {
+  if (!canSpeak || !text) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP'; u.rate = 0.95;
+    const v = window.speechSynthesis.getVoices().find((x) => x.lang && x.lang.startsWith('ja'));
+    if (v) u.voice = v;
+    window.speechSynthesis.speak(u);
+  } catch { /* 読み上げできない端末 */ }
 }

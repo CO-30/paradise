@@ -14,6 +14,7 @@
 
 <header id="hud">
   <div class="stat"><span class="lbl">日</span><b id="day">1</b></div>
+  <div class="stat chap"><b id="chapter">第1章</b><span id="regionName" class="lbl"></span><span id="goal" class="goal"></span></div>
   <div class="stat"><span class="lbl">労力</span><span id="energy" class="dots"></span></div>
   <div class="stat grow"><span class="lbl">楽園度</span><div class="bar"><i id="pbar"></i></div><b id="ptotal">0</b></div>
   <div class="stat mini" id="mstats"></div>
@@ -25,8 +26,25 @@
   <button id="btnDay" class="primary">🌙 一日を終える</button>
   <button id="btnCards">📖 黙想カード</button>
   <button id="btnHopes">📝 希望ノート</button>
+  <button id="btnWeekly">🗓 今週のテーマ</button>
+  <button id="btnRegion" hidden>🗺 地域</button>
+  <button id="btnWalk" hidden>🚶 歩いて見る</button>
+  <button id="btnPhoto">📷 記念写真</button>
   <button id="btnSettings">⚙ 設定</button>
 </div>
+
+<div id="walkpad" aria-label="歩く">
+  <button data-move="turn:-1" aria-label="左を向く">◀</button>
+  <button data-move="fwd:1" aria-label="前へ">▲</button>
+  <button data-move="fwd:-1" aria-label="後ろへ">▼</button>
+  <button data-move="turn:1" aria-label="右を向く">▶</button>
+  <button id="btnLeaveWalk" class="primary">🗺 地図に戻る</button>
+</div>
+
+<section id="reunion" aria-live="polite">
+  <div class="rays"></div>
+  <div class="msg"><p class="small">おかえりなさい</p><p id="reunionName" class="big"></p><p class="small">（画面を押すと戻ります）</p></div>
+</section>
 
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="fade"><p id="fadeText"></p></div>
