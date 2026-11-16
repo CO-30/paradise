@@ -40,12 +40,16 @@ export class Walker {
     this.near = new Set();
     this.onStep = () => {};
     this.onNear = () => {};
-    window.addEventListener('keydown', (e) => { if (this.active) { this.keys.add(e.key); if (e.key.startsWith('Arrow')) e.preventDefault(); } });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.key));
+    const key = (e) => (e.key.length === 1 ? e.key.toLowerCase() : e.key); // Shift で大文字になっても同じキー
+    window.addEventListener('keydown', (e) => { if (this.active) { this.keys.add(key(e)); if (e.key.startsWith('Arrow')) e.preventDefault(); } });
+    window.addEventListener('keyup', (e) => this.keys.delete(key(e)));
+    window.addEventListener('blur', () => this.keys.clear());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { this.keys.clear(); this.pad = { fwd: 0, turn: 0 }; } });
     let drag = null;
     canvas.addEventListener('pointerdown', (e) => { if (this.active) drag = e.clientX; });
     window.addEventListener('pointermove', (e) => { if (this.active && drag !== null) { this.cam.a += (e.clientX - drag) * 0.006; drag = e.clientX; } });
     window.addEventListener('pointerup', () => { drag = null; });
+    window.addEventListener('pointercancel', () => { drag = null; });
   }
 
   enter(s) {
@@ -133,14 +137,15 @@ export class Walker {
       const size = focal / T.c.f;
       const sx = w / 2 + (T.c.sd / T.c.f) * focal;
       if (sx < -size * 2 || sx > w + size * 2) continue;
-      items.push({ ...T, size, sx, sy: horizon + (EYE / T.c.f) * focal });
+      T.size = size; T.sx = sx; T.sy = horizon + (EYE / T.c.f) * focal;
+      items.push(T);
     }
     for (const it of items) {
       const i = idx(it.x, it.y), tile = s.tiles[i];
       g.save();
       g.globalAlpha = 1 - Math.min(1, it.d / 18) * 0.6;
       const X = it.sx - it.size / 2, Y = it.sy - it.size * 0.8;
-      this.decor(tile, i, it.sx, it.sy, it.size, t);
+      if (it.d < 9) this.decor(tile, i, it.sx, it.sy, it.size, t, it.d); // 遠くの草や穂は省いて軽くする
       if (['orchard', 'house', 'well', 'school'].includes(tile.k) || tile.a || tile.s) r.objectAt(tile, i, X, Y, it.size, t, sky);
       g.restore();
     }
@@ -177,9 +182,9 @@ export class Walker {
   }
 
   // 地面に生えている物（畑の穂・花・草・がれき・枯れ草）
-  decor(tile, i, sx, sy, size, t) {
+  decor(tile, i, sx, sy, size, t, d = 0) {
     const g = this.r.g;
-    const n = size > 60 ? 7 : 4;
+    const n = d > 5 ? 2 : size > 60 ? 6 : 4;
     const stalk = (col, hgt, k) => {
       const px = sx + (hash(i, 10 + k) - 0.5) * size * 0.9;
       const py = sy - (hash(i, 20 + k)) * size * 0.25;

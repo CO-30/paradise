@@ -214,6 +214,7 @@ function showSettings() {
     const s = parseState(await f.text());
     if (!s) return toast('読み込めないファイルでした');
     state = s; renderer.region = state.region; cardQueue.length = 0; leaveWalk(); save(); closeModal(); toast(`${state.day}日目の楽園を読み込みました`);
+    queueCards(takePending());
   });
   const reset = el('button', { on: { click: () => {
     if (busy) return;
@@ -354,9 +355,10 @@ $('btnWalk').addEventListener('click', unlessBusy(enterWalk));
 $('btnStart').addEventListener('click', () => {
   try { audio.start(); audio.setVolume(Number(pref('paradise.vol') ?? 0.8)); audio.setMuted(pref('paradise.mute') === '1'); } catch (e) { console.error(e); }
   $('title').classList.remove('show');
-  queueCards([unlock(state, 'morning')]);
+  queueCards([unlock(state, 'morning'), ...takePending()]);
   save();
 });
+function takePending() { const p = state.pendingCards || []; delete state.pendingCards; return p; }
 
 let warnedSave = false;
 function save() {

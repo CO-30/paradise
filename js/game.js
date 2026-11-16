@@ -314,7 +314,7 @@ export function saveState(storage, s) {
   try {
     const others = { ...s.regions };
     delete others[s.region]; // 今いる地域は tiles に入れる（重複を避ける）
-    storage.setItem(KEY, JSON.stringify({ ...s, regions: others }));
+    storage.setItem(KEY, JSON.stringify({ ...s, regions: others, pendingCards: undefined }));
     return true;
   } catch { return false; }
 }
@@ -344,7 +344,8 @@ export function parseState(json) {
     const tiles = cleanTiles(o.tiles);
     if (!tiles) return null;
     const chapter = Math.floor(num(o.chapter, 1, 5, 1));
-    const region = REGIONS[o.region] && (o.region === 'valley' || chapter >= 4) ? o.region : 'valley';
+    const region = REGIONS[o.region] ? o.region : 'valley';
+    if (region !== 'valley' && chapter < 4) return null; // つじつまの合わないデータは読まない
     const regions = {};
     if (o.regions && typeof o.regions === 'object') {
       for (const id of Object.keys(REGIONS)) {
@@ -366,7 +367,7 @@ export function parseState(json) {
     };
     refreshEnergy(s);
     s.energy = Math.floor(num(o.energy, 0, s.maxEnergy, s.maxEnergy));
-    checkChapter(s);
+    s.pendingCards = checkChapter(s); // 読み込みで章が進んだときのカード（画面側で表示して消す）
     return s;
   } catch { return null; }
 }

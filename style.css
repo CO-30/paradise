@@ -79,6 +79,7 @@ input[type=text] { flex: 1; min-width: 140px; }
 #walkpad button { width: 64px; height: 56px; font-size: 22px; border: 0; border-radius: 14px; background: rgba(251,248,240,.9); box-shadow: 0 2px 8px rgba(0,0,0,.25); touch-action: none; user-select: none; -webkit-user-select: none; }
 #walkpad #btnLeaveWalk { width: auto; padding: 0 16px; font-size: 15px; }
 body.walking #walkpad { display: flex; }
+body.walking #world { touch-action: none; }
 body.walking #tools, body.walking #side button:not(#btnPhoto):not(#btnSettings) { display: none; }
 body.walking .stat.grow, body.walking #mstats { display: none; }
 
@@ -100,3 +101,8 @@ body.walking .stat.grow, body.walking #mstats { display: none; }
   #walkpad { bottom: 10px; }
   #walkpad button { width: 54px; }
 }
+
+/* iPhone のノッチやホームバーに重ならないように */
+#hud { top: calc(8px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); right: calc(8px + env(safe-area-inset-right)); }
+#tools { bottom: calc(10px + env(safe-area-inset-bottom)); }
+#walkpad { bottom: calc(14px + env(safe-area-inset-bottom)); }

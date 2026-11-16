@@ -131,8 +131,20 @@ test('第1章の古い保存データ（regions なし）も谷として読め�
 
 test('章の条件を満たさない保存データで別地域にはいられない', () => {
   const s = newState(2);
-  const t = parseState(JSON.stringify({ ...s, region: 'desert', chapter: 1, regions: {} }));
-  assert.equal(t.region, 'valley');
+  assert.equal(parseState(JSON.stringify({ ...s, region: 'desert', chapter: 1, regions: {} })), null);
+});
+
+test('読み込みで章が進んだら、そのカードを画面に渡す（保存には残さない）', () => {
+  const s = newState(4);
+  grow(s);
+  const [hx, hy] = freeWetLand(s);
+  act(s, 'house', hx, hy); act(s, 'welcome', hx, hy, { name: 'たろう' });
+  const old = JSON.stringify({ ...s, chapter: 1, unlocked: [], regions: {} });
+  const t = parseState(old);
+  assert.equal(t.chapter, 2);
+  assert.deepEqual(t.pendingCards, ['ch2']);
+  const st = memStore(); saveState(st, t);
+  assert.equal(JSON.parse(st.getItem('paradise.v1')).pendingCards, undefined);
 });
 
 test('歩いて見る：家・海・地図の外には入れない', () => {
