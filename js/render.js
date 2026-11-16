@@ -24,6 +24,8 @@ export class Renderer {
     this.c = canvas;
     this.g = canvas.getContext('2d');
     this.particles = [];
+    this.region = 'valley';
+    this.season = 'spring';
     this.resize();
   }
 
@@ -38,9 +40,9 @@ export class Renderer {
     this.rot = h > w * 1.1;
     const cols = this.rot ? H : W, rows = this.rot ? W : H;
     const mobile = r.width < 700;
-    const bottom = (mobile ? 150 : 100) * dpr;
+    const bottom = (mobile ? 205 : 100) * dpr;
     const right = (mobile ? 0 : 170) * dpr;
-    this.skyH = Math.round(h * (this.rot ? 0.14 : 0.2));
+    this.skyH = Math.max(Math.round(h * (this.rot ? 0.14 : 0.2)), (mobile ? 118 : 60) * dpr); // 上の表示に地図が隠れないように
     this.ts = Math.floor(Math.min((w - right - 8 * dpr) / cols, (h - this.skyH - bottom) / rows));
     this.ox = Math.round((w - right - this.ts * cols) / 2);
     this.oy = this.skyH + Math.round((h - this.skyH - bottom - this.ts * rows) / 2);
@@ -64,7 +66,7 @@ export class Renderer {
     const sky = skyPhase(t);
     this.drawSky(sky, life, t);
     // 地面の下地
-    g.fillStyle = mixRGB([92, 84, 72], [70, 120, 60], life);
+    g.fillStyle = mixRGB(this.region === 'desert' ? [190, 165, 120] : [92, 84, 72], [70, 120, 60], life);
     g.fillRect(0, this.skyH, w, h - this.skyH);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) this.drawTile(s, x, y, t, life);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) this.drawObject(s, x, y, t, sky);
@@ -129,17 +131,33 @@ export class Renderer {
       g.fillStyle = `rgba(${shade},${shade},${shade},${lerp(0.75, 0.6, life)})`;
       for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(cx + k * cw * 0.3, cy + Math.sin(k) * cw * 0.08, cw * 0.32, cw * 0.18, 0, 0, Math.PI * 2); g.fill(); }
     }
-    // 遠くの山なみ
-    for (let layer = 0; layer < 2; layer++) {
-      const base = layer ? [110, 105, 100] : [130, 125, 120];
-      const green = layer ? [50, 110, 70] : [90, 150, 110];
-      g.fillStyle = mixRGB(mixRGB2(base, green, life), [15, 20, 40], sky.night * 0.8);
-      g.beginPath(); g.moveTo(0, sh);
-      for (let x = 0; x <= w; x += 8 * this.dpr) {
-        const n = Math.sin(x * 0.004 + layer * 2) * 0.5 + Math.sin(x * 0.011 + layer) * 0.3 + Math.sin(x * 0.027) * 0.1;
-        g.lineTo(x, sh * (0.78 + layer * 0.1) - n * sh * 0.18);
+    // 遠くの景色：地域ごとに変える
+    const region = this.region;
+    if (region === 'coast') {
+      const hy = sh * 0.8;
+      g.fillStyle = mixRGB(mixRGB2([120, 130, 140], [40, 120, 190], life), [10, 20, 50], sky.night * 0.8);
+      g.fillRect(0, hy, w, sh - hy);
+      g.fillStyle = `rgba(255,255,255,${0.35 * (1 - sky.night)})`;
+      for (let k = 0; k < 30; k++) { const x = (hash(k, 7) * w + t * 10 * this.dpr) % w; g.fillRect(x, hy + hash(k, 8) * (sh - hy), 6 * this.dpr, this.dpr); }
+      g.fillStyle = mixRGB(mixRGB2([110, 110, 105], [60, 120, 80], life), [15, 20, 40], sky.night * 0.8);
+      g.beginPath(); g.ellipse(w * 0.82, hy, w * 0.08, sh * 0.12, 0, Math.PI, 0); g.fill(); // 遠くの島
+    } else {
+      const amp = region === 'mountain' ? 0.45 : region === 'desert' ? 0.1 : 0.18;
+      for (let layer = 0; layer < 2; layer++) {
+        const base = region === 'desert' ? (layer ? [200, 165, 120] : [220, 190, 140]) : layer ? [110, 105, 100] : [130, 125, 120];
+        const green = layer ? [50, 110, 70] : [90, 150, 110];
+        g.fillStyle = mixRGB(mixRGB2(base, green, region === 'desert' ? life * 0.6 : life), [15, 20, 40], sky.night * 0.8);
+        g.beginPath(); g.moveTo(0, sh);
+        for (let x = 0; x <= w; x += 8 * this.dpr) {
+          const n = Math.sin(x * 0.004 + layer * 2) * 0.5 + Math.sin(x * 0.011 + layer) * 0.3 + Math.sin(x * 0.027) * 0.1;
+          g.lineTo(x, sh * (0.78 + layer * 0.1) - n * sh * amp - (region === 'mountain' && !layer ? sh * 0.15 : 0));
+        }
+        g.lineTo(w, sh); g.fill();
       }
-      g.lineTo(w, sh); g.fill();
+      if (region === 'mountain' && sky.night < 0.8) { // 雪をかぶった頂
+        g.fillStyle = `rgba(255,255,255,${0.7 * (1 - sky.night)})`;
+        for (let k = 0; k < 4; k++) { const px = w * (0.1 + k * 0.25); g.beginPath(); g.moveTo(px - sh * 0.08, sh * 0.32); g.lineTo(px, sh * 0.2); g.lineTo(px + sh * 0.08, sh * 0.32); g.fill(); }
+      }
     }
   }
 
@@ -214,7 +232,32 @@ export class Renderer {
         }
         break;
       }
-      case 'orchard': case 'house': case 'well': grass(); break;
+      case 'orchard': case 'house': case 'well': case 'school': grass(); break;
+      case 'sand':
+        fill(mixRGB([236, 220, 180], [222, 204, 160], r(9)));
+        g.fillStyle = 'rgba(170,150,110,0.35)';
+        for (let k = 0; k < 6; k++) g.fillRect(X + r(30 + k) * ts, Y + r(40 + k) * ts, ts * 0.03, ts * 0.03);
+        if (this.region === 'desert') {
+          g.strokeStyle = 'rgba(190,160,110,0.5)'; g.lineWidth = Math.max(1, ts / 40);
+          for (let k = 0; k < 2; k++) { const ly = Y + (0.3 + k * 0.4) * ts; g.beginPath(); g.moveTo(X, ly); g.quadraticCurveTo(X + ts / 2, ly - ts * 0.1, X + ts, ly); g.stroke(); }
+        }
+        break;
+      case 'sea': {
+        const deep = (y - (H - 3)) / 3;
+        fill(mixRGB([70, 190, 205], [20, 90, 160], clamp(deep + 0.15 * Math.sin(t * 0.7 + x * 0.5))));
+        g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = Math.max(1, ts / 35);
+        for (let k = 0; k < 2; k++) {
+          const off = ((t * ts * 0.25 + r(k) * ts + y * 7) % ts);
+          const ly = Y + (0.3 + k * 0.4) * ts + Math.sin(t * 1.3 + x + k) * ts * 0.05;
+          g.beginPath(); g.moveTo(X + off - ts * 0.2, ly); g.quadraticCurveTo(X + off, ly - ts * 0.05, X + off + ts * 0.2, ly); g.stroke();
+        }
+        if (y > 0 && s.tiles[idx(x, y - 1)].k !== 'sea') { // 波打ちぎわの白い泡
+          const fy = Y + ts * (0.08 + 0.06 * Math.sin(t * 1.2 + x));
+          g.fillStyle = 'rgba(255,255,255,0.75)';
+          for (let k = 0; k < 5; k++) { g.beginPath(); g.arc(X + (k + 0.5) * ts / 5, fy, ts * 0.06, 0, 7); g.fill(); }
+        }
+        break;
+      }
       case 'bed':
         fill(mixRGB([196, 178, 140], [180, 160, 125], r(9)));
         g.strokeStyle = 'rgba(120,100,70,0.6)'; g.lineWidth = Math.max(1, ts / 50);
@@ -243,9 +286,14 @@ export class Renderer {
   }
 
   drawObject(s, x, y, t, sky) {
-    const g = this.g, ts = this.ts;
     const [X, Y] = this.pos(x, y);
-    const i = idx(x, y), tile = s.tiles[i];
+    const i = idx(x, y);
+    this.objectAt(s.tiles[i], i, X, Y, this.ts, t, sky);
+  }
+
+  // 1マス分の物（木・家・動物など）を X,Y,ts の箱に描く。歩いて見るでも使う
+  objectAt(tile, i, X, Y, ts, t, sky) {
+    const g = this.g;
     const cx = X + ts / 2, cy = Y + ts / 2;
     if (tile.k === 'orchard') {
       const gr = 0.35 + 0.65 * tile.g;
@@ -253,7 +301,8 @@ export class Renderer {
       g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(cx + ts * 0.08, cy + ts * 0.32, ts * 0.32 * gr, ts * 0.1 * gr, 0, 0, 7); g.fill();
       g.fillStyle = '#6b4a2b'; g.fillRect(cx - ts * 0.04, cy, ts * 0.08, ts * 0.32);
       const fig = tile.v % 2 === 0;
-      g.fillStyle = fig ? '#3f8f3a' : '#4e9a3f';
+      const autumn = this.season === 'autumn' && hash(i, 33) < 0.45;
+      g.fillStyle = autumn ? (fig ? '#c8902e' : '#b5652a') : (fig ? '#3f8f3a' : '#4e9a3f');
       for (let k = 0; k < 4; k++) {
         g.beginPath();
         g.arc(cx + sway + Math.cos(k * 1.6) * ts * 0.13 * gr, cy - ts * 0.08 + Math.sin(k * 1.6) * ts * 0.1 * gr, ts * 0.2 * gr, 0, 7); g.fill();
@@ -285,7 +334,23 @@ export class Renderer {
         g.font = `${Math.round(ts * 0.2)}px sans-serif`; g.textAlign = 'center';
         g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillText(tile.p, cx + 1, Y - ts * 0.02 + 1);
         g.fillStyle = '#fff'; g.fillText(tile.p, cx, Y - ts * 0.02);
+        if (tile.t) { g.fillStyle = '#ffe680'; g.fillText('✦', cx + g.measureText(tile.p).width / 2 + ts * 0.1, Y - ts * 0.02); }
       }
+    }
+    if (tile.k === 'school') {
+      const b = 0.5 + 0.5 * tile.g;
+      const hw = ts * 0.8, hh = ts * 0.38 * b;
+      const bx = cx - hw / 2, by = cy + ts * 0.3 - hh;
+      g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(bx + ts * 0.06, by + hh - ts * 0.02, hw, ts * 0.08);
+      g.fillStyle = '#f7f3e8'; g.fillRect(bx, by, hw, hh);
+      g.fillStyle = '#3f6fa0';
+      g.beginPath(); g.moveTo(bx - ts * 0.05, by); g.lineTo(bx + hw * 0.5, by - ts * 0.22); g.lineTo(bx + hw + ts * 0.05, by); g.fill();
+      g.fillStyle = sky.night > 0.3 ? '#ffd77a' : '#9cc3dd';
+      for (let k = 0; k < 3; k++) g.fillRect(bx + ts * (0.08 + k * 0.24), by + ts * 0.07, ts * 0.14, ts * 0.12);
+      // 開いた本のしるし
+      g.fillStyle = '#fff'; g.strokeStyle = '#3f6fa0'; g.lineWidth = Math.max(1, ts * 0.015);
+      g.beginPath(); g.moveTo(cx, by - ts * 0.08); g.quadraticCurveTo(cx - ts * 0.08, by - ts * 0.12, cx - ts * 0.13, by - ts * 0.08); g.lineTo(cx - ts * 0.13, by - ts * 0.02); g.quadraticCurveTo(cx - ts * 0.07, by - ts * 0.05, cx, by - ts * 0.02); g.closePath(); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(cx, by - ts * 0.08); g.quadraticCurveTo(cx + ts * 0.08, by - ts * 0.12, cx + ts * 0.13, by - ts * 0.08); g.lineTo(cx + ts * 0.13, by - ts * 0.02); g.quadraticCurveTo(cx + ts * 0.07, by - ts * 0.05, cx, by - ts * 0.02); g.closePath(); g.fill(); g.stroke();
     }
     if (tile.s) {
       g.fillStyle = '#7a5532'; g.fillRect(cx + ts * 0.22, cy - ts * 0.1, ts * 0.05, ts * 0.38);
@@ -332,6 +397,16 @@ export class Renderer {
       case 'lion':
         [-0.09, 0.09].forEach((d) => leg(d, '#c08a3a'));
         body('#d9a548', 0.15, 0.08); head('#8a5a24', 0.085, 0.17, -0.07); head('#e0b05a', 0.055, 0.18, -0.07); break;
+      case 'wolf':
+        [-0.09, 0.09].forEach((d) => leg(d, '#5f6368'));
+        body('#8d9399', 0.15, 0.07); head('#8d9399', 0.055, 0.17, -0.08);
+        g.fillStyle = '#8d9399'; g.beginPath(); g.moveTo(wx + dir * ts * 0.14, wy - ts * 0.13 - bob); g.lineTo(wx + dir * ts * 0.16, wy - ts * 0.19 - bob); g.lineTo(wx + dir * ts * 0.19, wy - ts * 0.13 - bob); g.fill();
+        g.strokeStyle = '#8d9399'; g.lineWidth = ts * 0.03; g.beginPath(); g.moveTo(wx - dir * ts * 0.14, wy - bob); g.lineTo(wx - dir * ts * 0.24, wy - ts * 0.06 - bob); g.stroke(); break;
+      case 'leopard':
+        [-0.09, 0.09].forEach((d) => leg(d, '#c99a3e'));
+        body('#e2b456', 0.15, 0.065); head('#e2b456', 0.05, 0.17, -0.07);
+        g.fillStyle = '#5a3d1a'; for (let k = 0; k < 6; k++) { g.beginPath(); g.arc(wx + (hash(i, 40 + k) - 0.5) * ts * 0.24, wy - bob + (hash(i, 50 + k) - 0.5) * ts * 0.08, ts * 0.014, 0, 7); g.fill(); }
+        break;
       case 'bear':
         [-0.09, 0.09].forEach((d) => leg(d, '#4a2f1c'));
         body('#6b452a', 0.16, 0.09); head('#6b452a', 0.065, 0.17, -0.06); break;
@@ -371,6 +446,16 @@ export class Renderer {
         const flap = Math.abs(Math.sin(t * 12 + k)) * ts * 0.06;
         g.fillStyle = `hsla(${[45, 200, 330, 25, 280][k % 5]},85%,70%,${0.9 * (1 - sky.night)})`;
         g.beginPath(); g.ellipse(px - ts * 0.03, py, flap, ts * 0.05, -0.4, 0, 7); g.ellipse(px + ts * 0.03, py, flap, ts * 0.05, 0.4, 0, 7); g.fill();
+      }
+    }
+    // 春は花びら、秋は木の葉が舞う
+    if ((this.season === 'spring' || this.season === 'autumn') && sky.night < 0.5) {
+      const col = this.season === 'spring' ? '255,190,210' : '220,140,60';
+      for (let k = 0; k < Math.floor(life * 25); k++) {
+        const fall = (t * (0.04 + hash(k, 97) * 0.04) + hash(k, 98)) % 1;
+        const px = this.ox + (hash(k, 99) * mapW + Math.sin(t + k) * ts) % mapW;
+        const py = this.oy + fall * mapH;
+        g.fillStyle = `rgba(${col},0.85)`; g.beginPath(); g.ellipse(px, py, ts * 0.04, ts * 0.025, t + k, 0, 7); g.fill();
       }
     }
     // 鳥の群れ（空）
