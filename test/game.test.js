@@ -185,3 +185,36 @@ test('unlock は同じカードを二度返さない', () => {
   assert.equal(unlock(s, 'morning'), 'morning');
   assert.equal(unlock(s, 'morning'), null);
 });
+
+test('読み込みデータの危ない値は丸められる（監査対応）', async () => {
+  const { parseState } = await import('../js/game.js');
+  const s = newState(3);
+  const o = JSON.parse(JSON.stringify(s));
+  o.maxEnergy = 1e9; o.energy = -5; o.hopes = [null, { text: 'x'.repeat(500), who: 1 }, 'bad'];
+  o.tiles[5].p = 'y'.repeat(5000); o.tiles[6].a = 'dragon'; o.tiles[7].g = 99;
+  const t = parseState(JSON.stringify(o));
+  assert.equal(t.maxEnergy, 6);
+  assert.equal(t.energy, 0);
+  assert.equal(t.hopes.length, 1);
+  assert.equal(t.hopes[0].text.length, 80);
+  assert.equal(t.tiles[5].p, undefined); // 家以外の住人名は捨てる
+  assert.equal(t.tiles[6].a, undefined);
+  assert.equal(t.tiles[7].g, 1);
+  o.tiles[0].k = 'castle';
+  assert.equal(parseState(JSON.stringify(o)), null);
+});
+
+test('看板の上でも作業でき、看板は片づく', () => {
+  const s = newState(1);
+  s.energy = 99;
+  const { x, y } = find(s, 'rubble');
+  act(s, 'clear', x, y);
+  act(s, 'sign', x, y, { text: '泳ぐ' });
+  assert.equal(act(s, 'flower', x, y).ok, true);
+  assert.equal(s.tiles[idx(x, y)].s, undefined);
+});
+
+test('迎えたい人の名前は20字まで', () => {
+  const s = newState(1);
+  assert.equal(addHope(s, 'a', 'い'.repeat(50), 'person').text.length, 20);
+});

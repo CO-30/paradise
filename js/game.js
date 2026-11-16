@@ -111,7 +111,7 @@ export const ACTIONS = {
   house: { label: '家', cost: 4, on: LAND, water: true, hint: '水と実った食物があれば建てられる' },
   animal: { label: '動物', cost: 1, on: ['grass', 'flower'], hint: '緑が増えると動物がやって来る' },
   welcome: { label: '迎える', cost: 1, on: ['house'], hint: '空き家に復活した人を迎える' },
-  sign: { label: '希望の看板', cost: 0, on: ['soil', 'grass', 'flower'], hint: '家族の希望を書いて立てる' },
+  sign: { label: '看板', cost: 0, on: ['soil', 'grass', 'flower'], hint: '家族の希望を書いて立てる' },
 };
 
 export function act(s, action, x, y, opt = {}) {
@@ -120,7 +120,6 @@ export function act(s, action, x, y, opt = {}) {
   const t = s.tiles[idx(x, y)];
   if (!A.on.includes(t.k)) return { ok: false, reason: `「${A.label}」はこの場所ではできません` };
   if (t.a && action !== 'animal' && action !== 'sign') return { ok: false, reason: '動物が休んでいます' };
-  if (t.s && action !== 'sign') return { ok: false, reason: '希望の看板が立っています' };
   if (s.energy < A.cost) return { ok: false, reason: '今日の労力を使い切りました。「一日を終える」で休みましょう' };
   if (A.water && !isWatered(s, x, y)) return { ok: false, reason: '近くに水がありません。水路か井戸を作りましょう' };
   const m = metrics(s);
@@ -159,6 +158,7 @@ export function act(s, action, x, y, opt = {}) {
       t.s = text; break;
     }
   }
+  if (action !== 'sign' && action !== 'animal' && action !== 'welcome') delete t.s; // 作業すると看板は片づける
   s.energy -= A.cost;
   s.log.unshift({ day: s.day, text: `${A.label}（${x + 1},${y + 1}）` });
   s.log.length = Math.min(s.log.length, 30);
@@ -188,7 +188,8 @@ export function endDay(s) {
 export function addHope(s, who, text, kind = 'do') {
   const t = String(text || '').trim().slice(0, 80);
   if (!t) return null;
-  const e = { who: String(who || '').trim().slice(0, 20) || '家族', text: t, kind: kind === 'person' ? 'person' : 'do', day: s.day };
+  const k = kind === 'person' ? 'person' : 'do';
+  const e = { who: String(who || '').trim().slice(0, 20) || '家族', text: k === 'person' ? t.slice(0, 20) : t, kind: k, day: s.day };
   s.hopes.push(e);
   return e;
 }
@@ -197,16 +198,38 @@ export function saveState(storage, s) {
   try { storage.setItem(KEY, JSON.stringify(s)); return true; } catch { return false; }
 }
 
+const KINDS = new Set(['rubble', 'weeds', 'soil', 'grass', 'field', 'orchard', 'flower', 'well', 'bed', 'open', 'stream', 'spring', 'house']);
+const ANIMAL_KINDS = new Set(ANIMAL_CYCLE);
+const str = (v, n) => (typeof v === 'string' && v.trim() ? v.slice(0, n) : undefined);
+const num = (v, lo, hi, d) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+
+// 読み込んだデータは信用せず、知っている形だけを取り出す
 export function parseState(json) {
   try {
     const o = JSON.parse(json);
     if (!o || !Array.isArray(o.tiles) || o.tiles.length !== W * H || !Number.isFinite(o.day)) return null;
-    if (!o.tiles.every((t) => t && typeof t.k === 'string')) return null;
+    if (!o.tiles.every((t) => t && KINDS.has(t.k))) return null;
+    if (o.tiles.filter((t) => t.k === 'spring').length !== 1) return null;
+    const tiles = o.tiles.map((t) => {
+      const n = { k: t.k, g: num(t.g, 0, 1, 0), v: Math.floor(num(t.v, 0, 3, 0)) };
+      if (ANIMAL_KINDS.has(t.a)) n.a = t.a;
+      const p = str(t.p, 20); if (p && t.k === 'house') n.p = p;
+      const sg = str(t.s, 80); if (sg) n.s = sg;
+      return n;
+    });
+    const people = tiles.filter((t) => t.p).length;
+    const maxEnergy = BASE_ENERGY + 2 * people;
     return {
-      ...newState(o.seed || 1), ...o,
-      hopes: Array.isArray(o.hopes) ? o.hopes : [],
-      unlocked: Array.isArray(o.unlocked) ? o.unlocked : [],
-      log: Array.isArray(o.log) ? o.log : [],
+      version: 1,
+      seed: Number.isFinite(o.seed) ? o.seed : 1,
+      day: Math.floor(num(o.day, 1, 1e6, 1)),
+      energy: Math.floor(num(o.energy, 0, maxEnergy, maxEnergy)),
+      maxEnergy,
+      tiles,
+      hopes: (Array.isArray(o.hopes) ? o.hopes : []).filter((h) => h && str(h.text, 80)).slice(0, 500)
+        .map((h) => ({ who: str(h.who, 20) || '家族', text: str(h.text, 80), kind: h.kind === 'person' ? 'person' : 'do', day: Math.floor(num(h.day, 1, 1e6, 1)) })),
+      unlocked: (Array.isArray(o.unlocked) ? o.unlocked : []).filter((c) => typeof c === 'string').slice(0, 50),
+      log: [],
     };
   } catch { return null; }
 }
