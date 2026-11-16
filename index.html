@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>楽園をつくろう</title>
+<meta name="description" content="ハルマゲドン後の地球を一日ずつ楽園にしていく、家族のための穏やかなゲーム">
+<meta name="theme-color" content="#2f6b4f">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8C%B3%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<canvas id="world" aria-label="楽園の谷"></canvas>
+
+<header id="hud">
+  <div class="stat"><span class="lbl">日</span><b id="day">1</b></div>
+  <div class="stat"><span class="lbl">労力</span><span id="energy" class="dots"></span></div>
+  <div class="stat grow"><span class="lbl">楽園度</span><div class="bar"><i id="pbar"></i></div><b id="ptotal">0</b></div>
+  <div class="stat mini" id="mstats"></div>
+</header>
+
+<nav id="tools" aria-label="作業"></nav>
+
+<div id="side">
+  <button id="btnDay" class="primary">🌙 一日を終える</button>
+  <button id="btnCards">📖 黙想カード</button>
+  <button id="btnHopes">📝 希望ノート</button>
+  <button id="btnSettings">⚙ 設定</button>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="fade"><p id="fadeText"></p></div>
+
+<!-- タイトル -->
+<section id="title" class="overlay show">
+  <div class="panel center">
+    <h1>楽園をつくろう</h1>
+    <p class="sub">静かになった大地を、一日ずつ。</p>
+    <p class="intro">ハルマゲドンの後、地球は残ります。がれきを片づけ、水を引き、種をまき、家を建て、動物を迎え、そして復活してくる人たちを迎えましょう。急ぐ必要はありません。家族で話しながら、何か月もかけて育ててください。</p>
+    <button id="btnStart" class="primary big">はじめる</button>
+    <p class="note">音が出ます。音量は「設定」で変えられます。</p>
+  </div>
+</section>
+
+<!-- 汎用モーダル -->
+<section id="modal" class="overlay" role="dialog" aria-modal="true">
+  <div class="panel">
+    <button class="close" aria-label="閉じる">×</button>
+    <div id="modalBody"></div>
+  </div>
+</section>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

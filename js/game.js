@@ -111,7 +111,7 @@ export const ACTIONS = {
   house: { label: '家', cost: 4, on: LAND, water: true, hint: '水と実った食物があれば建てられる' },
   animal: { label: '動物', cost: 1, on: ['grass', 'flower'], hint: '緑が増えると動物がやって来る' },
   welcome: { label: '迎える', cost: 1, on: ['house'], hint: '空き家に復活した人を迎える' },
-  sign: { label: '希望の看板', cost: 0, on: ['soil', 'grass', 'flower'], hint: '家族の希望を書いて立てる' },
+  sign: { label: '看板', cost: 0, on: ['soil', 'grass', 'flower'], hint: '家族の希望を書いて立てる' },
 };
 
 export function act(s, action, x, y, opt = {}) {
